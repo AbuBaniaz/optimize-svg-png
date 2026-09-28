@@ -1,7 +1,7 @@
 # optimize-png: Batch PNG Optimiser
 
-**optimize-png** is a bash script that batch-optimises PNG files using ImageMagick.
-It strips unnecessary embedded data from every file in a folder, and optionally trims excess uniform margins, fully automated from the command line.
+**optimize-png** is a bash script that batch-optimises PNG files with [oxipng](https://github.com/oxipng/oxipng) (and ImageMagick for trimming).
+It losslessly recompresses every file in a folder, strips unnecessary embedded data, and optionally trims excess uniform margins, fully automated from the command line.
 
 ## Why this script?
 
@@ -9,39 +9,38 @@ Manually cleaning dozens of PNG files is tedious and error-prone.
 This script automates the entire process:
 
 - processes a whole folder in one command
-- runs ImageMagick in parallel on all available CPU cores
+- uses all available CPU cores
 - automatically backs up original files before making any change
-- writes each result to a temporary file first, preventing corruption on error
+- never makes a file larger: a result is written only if it is smaller
 - installs all missing dependencies on first run
 
 ## What it does
 
 | Step | Tool | What happens |
 |------|------|-------------|
-| 1 | ImageMagick | Strips embedded ICC profiles, EXIF data, comments and unnecessary PNG chunks |
-| 2 (with `--trim`) | ImageMagick | Trims uniform background pixels at edges with zero colour tolerance |
+| 1 (only with `--trim`) | ImageMagick | Trims uniform background pixels at edges with zero colour tolerance |
+| 2 | oxipng | Lossless recompression; strips embedded ICC profiles, EXIF data, comments and unnecessary PNG chunks |
 
 ### What `--trim` does
 
-Without `--trim` the script only strips metadata, leaving the canvas dimensions intact.
+Without `--trim` the script never touches the canvas dimensions (oxipng only recompresses and strips metadata).
 
-With `--trim`, ImageMagick also runs `-trim -fuzz 0%`:
+With `--trim`, ImageMagick also runs `-fuzz 0% -trim`:
 
 - `-fuzz 0%` means **only perfectly identical pixels** at the image edges are considered background and removed. This conservative approach protects logos and designs with intricate borders, gradients or semi-transparent edges.
 - `-trim` removes the border region of matching pixels.
 - `+repage` resets the canvas size to the trimmed image, removing any virtual offset ImageMagick would otherwise keep from the original geometry.
 
-### Why `-strip`?
+### Why strip metadata?
 
 PNG files often contain embedded metadata that is invisible to the eye but adds weight to the file: ICC colour profiles, EXIF chunks, creation timestamps, comments and software tags.
-The `-strip` flag removes all of this, reducing file size without affecting the image content.
+oxipng (`--strip all`) removes all of this, reducing file size without affecting the image content. With `--keep-icc` the ICC profile is kept (`--strip safe`).
 
 ## Requirements
 
 - Debian or WSL2 Debian (Windows users: see below)
-- ImageMagick (`magick` command)
-
-The dependency is **installed automatically** on first run via `apt`.
+- oxipng: **downloaded automatically** on first run (latest release, into `/usr/local/bin`) if not in the PATH
+- ImageMagick (`magick` or `convert`): needed **only** for `--trim`, or as a fallback when oxipng cannot be installed. Installed automatically via `apt` when needed.
 
 ## Installation
 
@@ -58,7 +57,7 @@ The script is now available system-wide as `optimize_png`.
 ## Usage
 
 ```bash
-optimize_png [--trim] <folder>
+optimize_png [--trim] [--keep-icc] <folder>
 ```
 
 The original files are backed up to `<folder>_backup_png` before processing.
@@ -66,7 +65,15 @@ If the backup folder already exists the script exits immediately without modifyi
 
 ### Options
 
-`--trim` — trim excess uniform background pixels at edges (zero colour tolerance) and reset the canvas size.
+`--trim` — trim excess uniform background pixels at edges (zero colour tolerance) and reset the canvas size. Images that would collapse to a single pixel are left untouched.
+
+`--keep-icc` — keep the embedded ICC colour profile and strip everything else. Without it the profile is removed too, which can shift colours on images that are not plain sRGB.
+
+**How the work is split.** Without `--trim` the whole job is done by [oxipng](https://github.com/oxipng/oxipng) (`-o 4 --strip all -p`): lossless, pixel-identical, it never rewrites a file that would not get smaller, and it removes the same metadata as ImageMagick `-strip`. ImageMagick is **not used and not required**. With `--trim` ImageMagick crops the margins first (oxipng cannot crop) and oxipng runs right after. With `--keep-icc` oxipng uses `--strip safe`, which keeps the ICC profile.
+
+If `oxipng` is not in the PATH the script downloads the latest release from <https://github.com/oxipng/oxipng/releases/latest/download> for the current architecture (`x86_64` or `aarch64`, static musl build) and installs it in `/usr/local/bin` (using `sudo` when needed). If that fails, the script warns and falls back to ImageMagick alone (re-encoding with `-strip`, and only replacing a file when the result is smaller). Files ImageMagick failed on are not passed to oxipng.
+
+In the ImageMagick stage a file is replaced only if the result is strictly smaller; otherwise the original is kept. File permissions are preserved, `.PNG` is matched too, and the exit status is 1 if any file failed.
 
 Without `--trim` only metadata is stripped and the original canvas dimensions are preserved exactly.
 
@@ -126,7 +133,7 @@ The final line shows total space saved across all processed files.
 ## Safety
 
 - The backup folder is created **after** confirming that PNG files exist in the target folder, so no empty backup is ever created.
-- Each file is first written to a temporary file (`mktemp`). The original is overwritten only if ImageMagick succeeds. On failure the temporary file is removed and the original is left untouched.
+- Each file is first written to a temporary file (`mktemp`). In the ImageMagick stage (`--trim`) the original is overwritten only if ImageMagick succeeds and the result is smaller; oxipng itself only rewrites a file when the result is smaller.
 - If the backup folder already exists the script exits immediately without modifying anything.
 
 ## Limitations

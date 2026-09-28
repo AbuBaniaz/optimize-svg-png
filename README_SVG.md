@@ -70,7 +70,7 @@ The script is now available system-wide as `optimize_svg`.
 ## Usage
 
 ```bash
-optimize_svg [--trim] <folder>
+optimize_svg [--trim] [--keep-ids] <folder>
 ```
 
 The original files are backed up to `<folder>_backup_svg` before processing.
@@ -83,6 +83,10 @@ If the backup folder already exists the script exits immediately without modifyi
 > **Warning:** `--trim` uses Inkscape's `export-area-drawing`, which calculates the bounding box without accounting for strokes that extend outside path geometry. This can clip edges (typically the top or sides) on files where strokes run close to the canvas border. Use only when you are sure the files have no such strokes.
 
 Without `--trim` the original canvas dimensions (viewBox, width, height) are preserved exactly.
+
+`--keep-ids` — do not remove or shorten IDs. Use it when IDs are referenced from outside the file (JavaScript, external CSS, `#anchor` links).
+
+CSS inlining is deliberately conservative: only simple `.class` rules made of presentation properties are inlined. Files that use `@media`, `@keyframes`, `:hover`, tag or compound selectors are left as they are, so dark mode, animations and hover effects keep working. Not suitable for animated or interactive SVG.
 
 ### Example
 

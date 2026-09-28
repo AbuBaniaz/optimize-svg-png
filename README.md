@@ -42,19 +42,20 @@ For full documentation see [README_SVG.md](README_SVG.md).
 
 ## optimize-png
 
-Strips unnecessary embedded data from all PNG files in a folder.
+Losslessly recompresses all PNG files in a folder and strips unnecessary embedded data.
 With `--trim`, also removes excess uniform margins.
-ImageMagick runs in parallel on all available CPU cores.
 
 ### What it does
 
-- **ImageMagick:** removes ICC profiles, EXIF data and PNG metadata chunks; with `--trim`, also trims uniform background pixels at edges with zero colour tolerance
+- **oxipng:** lossless recompression; removes ICC profiles, EXIF data and PNG metadata chunks (pixels stay identical, a file is never made larger)
+- **ImageMagick (only with `--trim`):** trims uniform background pixels at edges with zero colour tolerance, then oxipng runs
 
 Original files are backed up to `<folder>_backup_png` before any modification.
 
 ### Requirements
 
-ImageMagick (`magick` command) — installed automatically if missing.
+oxipng — the latest release is downloaded automatically into `/usr/local/bin` if missing (x86_64 and aarch64).
+ImageMagick — needed only for `--trim`, or as a fallback if oxipng cannot be installed; installed automatically via `apt` when needed.
 
 ### Installation
 
