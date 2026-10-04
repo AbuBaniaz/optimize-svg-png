@@ -19,8 +19,8 @@ This script automates the entire process:
 | Step | Tool | What happens |
 |------|------|-------------|
 | 1 | Inkscape | Converts `<text>` and `<tspan>` to `<path>` (removes font dependency), preserves original canvas |
-| 2 | Python + lxml | Parses SVG with lxml, reads `fill` values from CSS `<style>` block, applies them inline on each element, removes the `<style>` block |
-| 3 | scour | Removes metadata, comments, unused IDs, shortens colour values, reduces coordinate precision, enables viewBox |
+| 2 | Python + lxml | Parses SVG with lxml, inlines the presentation properties (`fill`, `stroke`, `opacity`...) of simple `.class` rules on each element, removes the `class` attributes and the `<style>` block when no longer needed. Files with CSS that cannot be inlined faithfully are left untouched |
+| 3 | scour | Removes the XML declaration, metadata, comments, `xml:space="preserve"` and the whitespace it protects, unused IDs (the others are shortened), shortens colour values, reduces coordinate precision to 5 significant digits. `width`/`height` are never dropped, so the intrinsic size is preserved |
 | 4 | Python + lxml | Parses each output file to verify it is valid XML; on failure restores the original from backup and marks the file `[RESTORED]` in the report |
 
 ### Why convert text to path first?
@@ -33,7 +33,11 @@ If SVG files contain text elements with CSS classes defining fonts and colours, 
 
 ### Why inline CSS before scour?
 
-After Inkscape converts text to path, the generated `<path>` elements still carry `class="..."` attributes referencing the original CSS. If left as-is, scour keeps the `<style>` block because the classes are still referenced. Step 2 moves the `fill` value directly onto each element so scour can remove everything CSS-related cleanly.
+After Inkscape converts text to path, the generated `<path>` elements still carry `class="..."` attributes referencing the original CSS. If left as-is, scour keeps the `<style>` block because the classes are still referenced. Step 2 moves the presentation properties directly onto each element so scour can remove everything CSS-related cleanly.
+
+### Why remove `xml:space="preserve"`?
+
+Files exported by Adobe Illustrator carry `xml:space="preserve"` on the root element. With that attribute scour treats the whitespace between elements as significant and keeps it, so the output is full of blank lines and tabs even with `--indent=none`. After text-to-path conversion that whitespace is no longer needed, so the script passes `--strip-xml-space` to scour and removes it. If Inkscape fails on a file and some text is left, the script prints a warning for that file.
 
 ### Why lxml for step 2?
 
@@ -88,6 +92,8 @@ Without `--trim` the original canvas dimensions (viewBox, width, height) are pre
 
 CSS inlining is deliberately conservative: only simple `.class` rules made of presentation properties are inlined. Files that use `@media`, `@keyframes`, `:hover`, tag or compound selectors are left as they are, so dark mode, animations and hover effects keep working. Not suitable for animated or interactive SVG.
 
+Exit status is 1 if at least one file failed or was restored from backup. File permissions are preserved and extensions are matched case-insensitively.
+
 ### Example
 
 ```bash
@@ -97,12 +103,14 @@ optimize_svg /home/user/picons/svg
 ```
 Backup saved to: /home/user/picons/svg_backup_svg
 Starting SVG optimisation in: /home/user/picons/svg
-Files found: 16  |  CPU cores: 8
+Files found: 16  |  CPU cores: 8  |  Inkscape: 1.4
+--------------------------------------------------------
+Mode: text to path + preserve canvas + inline CSS, then scour (strip metadata, shorten IDs)
 --------------------------------------------------------
 [1/4] Inkscape: converting text to path, preserving canvas (sequential)...
       Done.
 --------------------------------------------------------
-[2/4] Inlining CSS class styles and removing <style> block (lxml)...
+[2/4] Inlining CSS class styles where safe (lxml)...
       (processing in parallel, order may vary)
       Done.
 --------------------------------------------------------

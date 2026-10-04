@@ -12,8 +12,8 @@ Inkscape runs in shell mode (single launch), Python (lxml) and scour run in para
 ### What it does
 
 - **Step 1 – Inkscape:** converts `<text>` to `<path>`, preserves original canvas (use `--trim` to fit canvas to drawing)
-- **Step 2 – Python + lxml:** parses SVG with lxml, inlines CSS `fill` values, removes `<style>` block
-- **Step 3 – scour:** cleans and compresses SVG (metadata, comments, IDs, precision, viewBox)
+- **Step 2 – Python + lxml:** parses SVG with lxml, inlines the presentation properties of simple CSS `.class` rules and removes the `<style>` block when no longer needed (files with `@media`, `@keyframes`, `:hover`... are left untouched)
+- **Step 3 – scour:** cleans and compresses SVG (metadata, comments, `xml:space="preserve"` and leftover blank lines, IDs, precision); `width`/`height` are always kept (use `--keep-ids` to leave IDs alone)
 - **Step 4 – Python + lxml:** verifies each output file is valid XML; restores from backup and marks `[RESTORED]` in the report if corrupted
 
 Original files are backed up to `<folder>_backup_svg` before any modification.
@@ -33,7 +33,7 @@ chmod +x ~/.local/bin/optimize_svg
 ### Usage
 
 ```bash
-optimize_svg [--trim] <folder>
+optimize_svg [--trim] [--keep-ids] <folder>
 ```
 
 For full documentation see [README_SVG.md](README_SVG.md).
@@ -47,7 +47,7 @@ With `--trim`, also removes excess uniform margins.
 
 ### What it does
 
-- **oxipng:** lossless recompression; removes ICC profiles, EXIF data and PNG metadata chunks (pixels stay identical, a file is never made larger)
+- **oxipng:** lossless recompression; removes ICC profiles, EXIF data and PNG metadata chunks (pixels stay identical, a file is never made larger). Use `--keep-icc` to keep the ICC profile
 - **ImageMagick (only with `--trim`):** trims uniform background pixels at edges with zero colour tolerance, then oxipng runs
 
 Original files are backed up to `<folder>_backup_png` before any modification.
@@ -68,7 +68,7 @@ chmod +x ~/.local/bin/optimize_png
 ### Usage
 
 ```bash
-optimize_png [--trim] <folder>
+optimize_png [--trim] [--keep-icc] <folder>
 ```
 
 For full documentation see [README_PNG.md](README_PNG.md).
@@ -83,7 +83,7 @@ Both scripts share the same design principles:
 - run in parallel on all available CPU cores
 - create a backup of originals before making any change
 - stop safely if the backup folder already exists
-- print a per-file size report with total space saved at the end
+- print a `Mode:` line at start and a per-file size report with total space saved at the end
 - install missing dependencies automatically via `apt`
 
 ## Windows users (WSL2)

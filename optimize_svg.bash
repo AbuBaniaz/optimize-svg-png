@@ -44,6 +44,8 @@ DESCRIPTION
     - Removes the XML declaration, metadata and comments
     - Never drops width/height, so the intrinsic size of the image is preserved
     - Removes unused IDs and shortens the remaining ones (see --keep-ids)
+    - Removes xml:space="preserve" and the whitespace-only text nodes it
+      protects (otherwise blank lines and tabs from the source file survive)
     - No pretty-printing (smallest output)
 
   Step 4 - Integrity check (parallel, all CPU cores):
@@ -177,6 +179,8 @@ SCOUR_OPTS=(
   "--remove-metadata"          # remove metadata
   "--enable-comment-stripping" # remove comments
   "--indent=none"              # smallest output
+  "--strip-xml-space"          # drop xml:space="preserve" so that the blank
+                               # lines/tabs left by the source editor are removed
   "--renderer-workaround"      # work around renderer bugs
 )
 if [[ $KEEP_IDS -eq 0 ]]; then
@@ -206,6 +210,10 @@ echo "Backup saved to: $BACKUP_DIR"
 CORES=$(nproc)
 echo "Starting SVG optimisation in: $DIR"
 echo "Files found: $TOTAL  |  CPU cores: $CORES  |  Inkscape: $INK_VER"
+echo "--------------------------------------------------------"
+if [[ $TRIM -eq 1 ]]; then CANVAS_LABEL="trim canvas to drawing"; else CANVAS_LABEL="preserve canvas"; fi
+if [[ $KEEP_IDS -eq 1 ]]; then IDS_LABEL="keep IDs"; else IDS_LABEL="shorten IDs"; fi
+echo "Mode: text to path + $CANVAS_LABEL + inline CSS, then scour (strip metadata, $IDS_LABEL)"
 echo "--------------------------------------------------------"
 
 TIME_START=$(date +%s)
